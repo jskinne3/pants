@@ -7,5 +7,5 @@
                         'Elixir.FileSystem.Backends.FSWindows',
                         'Elixir.FileSystem.Worker']},
               {registered,[]},
-              {vsn,"0.2.4"},
+              {vsn,"0.2.5"},
               {applications,[kernel,stdlib,elixir,logger]}]}.

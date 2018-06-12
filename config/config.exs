@@ -6,21 +6,21 @@
 use Mix.Config
 
 # General application configuration
-config :phoenix_test,
-  ecto_repos: [PhoenixTest.Repo]
+config :blog,
+  ecto_repos: [Blog.Repo]
 
 # Configures the endpoint
-config :phoenix_test, PhoenixTestWeb.Endpoint,
+config :blog, Blog.Endpoint,
   url: [host: "localhost"],
-  secret_key_base: "mH9Aj0iwZxKZNQqVCa+yKPLX0IHoK2vS1FyAcXwDNj25zEvklxjQDUucCYRFt7Yd",
-  render_errors: [view: PhoenixTestWeb.ErrorView, accepts: ~w(html json)],
-  pubsub: [name: PhoenixTest.PubSub,
+  secret_key_base: "95V6xjxph2lqB+dPVzJle9pyrZuQWYNUR1g7kXTYpLEg39AMeDwCUi1QETTMJoql",
+  render_errors: [view: Blog.ErrorView, accepts: ~w(html json)],
+  pubsub: [name: Blog.PubSub,
            adapter: Phoenix.PubSub.PG2]
 
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:user_id]
+  metadata: [:request_id]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

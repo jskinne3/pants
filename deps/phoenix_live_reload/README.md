@@ -10,6 +10,19 @@ def deps do
 end
 ```
 
+You can configure the reloading interval in ms in your `config/dev.exs`:
+
+```elixir
+# Watch static and templates for browser reloading.
+config :my_app, MyAppWeb.Endpoint,
+  live_reload: [
+    interval: 1000,
+    patterns: [
+      ...
+```
+
+The default interval is 100ms.
+
 ## Backends
 
 This project uses [`FileSystem`](https://github.com/falood/file_system) as a dependency to watch your filesystem whenever there is a change and it supports the following operating systems:

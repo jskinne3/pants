@@ -273,7 +273,7 @@ defmodule Plug.Conn do
   @unsent [:unset, :set, :set_chunked, :set_file]
 
   @doc """
-  Assigns a value to a key in the connection
+  Assigns a value to a key in the connection.
 
   ## Examples
 
@@ -290,47 +290,38 @@ defmodule Plug.Conn do
   end
 
   @doc """
-  Starts a task to assign a value to a key in the connection.
+  Assigns multiple values to keys in the connection.
 
-  `await_assign/2` can be used to wait for the async task to complete and
-  retrieve the resulting value.
-
-  Behind the scenes, it uses `Task.async/1`.
+  Equivalent to multiple calls to `assign/3`.
 
   ## Examples
 
       iex> conn.assigns[:hello]
       nil
-      iex> conn = async_assign(conn, :hello, fn -> :world end)
-      iex> conn.assigns[:hello]
-      %Task{...}
-
-  """
-  @spec async_assign(t, atom, (() -> term)) :: t
-  def async_assign(%Conn{} = conn, key, fun) when is_atom(key) and is_function(fun, 0) do
-    assign(conn, key, Task.async(fun))
-  end
-
-  @doc """
-  Awaits the completion of an async assign.
-
-  Returns a connection with the value resulting from the async assignment placed
-  under `key` in the `:assigns` field.
-
-  Behind the scenes, it uses `Task.await/2`.
-
-  ## Examples
-
-      iex> conn.assigns[:hello]
-      nil
-      iex> conn = async_assign(conn, :hello, fn -> :world end)
-      iex> conn = await_assign(conn, :hello) # blocks until `conn.assigns[:hello]` is available
+      iex> conn = merge_assigns(conn, hello: :world)
       iex> conn.assigns[:hello]
       :world
 
   """
+  @spec merge_assigns(t, Keyword.t()) :: t
+  def merge_assigns(%Conn{assigns: assigns} = conn, keyword) when is_list(keyword) do
+    %{conn | assigns: Enum.into(keyword, assigns)}
+  end
+
+  @doc false
+  @spec async_assign(t, atom, (() -> term)) :: t
+  def async_assign(%Conn{} = conn, key, fun) when is_atom(key) and is_function(fun, 0) do
+    IO.warn("Plug.Conn.async_assign/3 is deprecated, please call assign + Task.async instead")
+    assign(conn, key, Task.async(fun))
+  end
+
+  @doc false
   @spec await_assign(t, atom, timeout) :: t
   def await_assign(%Conn{} = conn, key, timeout \\ 5000) when is_atom(key) do
+    IO.warn(
+      "Plug.Conn.await_assign/3 is deprecated, please fetch the assign and call Task.await instead"
+    )
+
     task = Map.fetch!(conn.assigns, key)
     assign(conn, key, Task.await(task, timeout))
   end
@@ -355,6 +346,24 @@ defmodule Plug.Conn do
   @spec put_private(t, atom, term) :: t
   def put_private(%Conn{private: private} = conn, key, value) when is_atom(key) do
     %{conn | private: Map.put(private, key, value)}
+  end
+
+  @doc """
+  Assigns multiple **private** keys and values in the connection.
+
+  Equivalent to multiple `put_private/3` calls.
+
+  ## Examples
+
+      iex> conn.private[:plug_hello]
+      nil
+      iex> conn = merge_private(conn, plug_hello: :world)
+      iex> conn.private[:plug_hello]
+      :world
+  """
+  @spec merge_private(t, Keyword.t()) :: t
+  def merge_private(%Conn{private: private} = conn, keyword) when is_list(keyword) do
+    %{conn | private: Enum.into(keyword, private)}
   end
 
   @doc """
@@ -674,7 +683,7 @@ defmodule Plug.Conn do
   Prepends the list of headers to the connection response headers.
 
   Similar to `put_resp_header` this functions adds a new response header
-  (`key`) but rather then replacing the exising one it prepends another header
+  (`key`) but rather then replacing the existing one it prepends another header
   with the same `key`.
 
   It is recommended for header keys to be in lower-case, to avoid sending
@@ -802,6 +811,9 @@ defmodule Plug.Conn do
   @doc """
   Fetches query parameters from the query string.
 
+  Params are decoded as "x-www-form-urlencoded" in which key/value pairs
+  are separated by `&` and keys are separated from values by `=`.
+
   This function does not fetch parameters from the body. To fetch
   parameters from the body, use the `Plug.Parsers` plug.
 
@@ -842,6 +854,9 @@ defmodule Plug.Conn do
   there is more data to be read, then `{:more, partial_body, conn}` is
   returned. Otherwise `{:ok, body, conn}` is returned. In case of an error
   reading the socket, `{:error, reason}` is returned as per `:gen_tcp.recv/2`.
+
+  Like all functions in this module, the `conn` returned by `read_body` must
+  be passed to the next stage of your pipeline and should not be ignored.
 
   In order to, for instance, support slower clients you can tune the
   `:read_length` and `:read_timeout` options. These specify how much time should

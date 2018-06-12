@@ -8,13 +8,13 @@ use Mix.Config
 # file or create a script for recreating it, since it's
 # kept out of version control and might be hard to recover
 # or recreate for your teammates (or yourself later on).
-config :phoenix_test, PhoenixTestWeb.Endpoint,
-  secret_key_base: "xwVLKahW8DDsEjlWnnnSMsV0cCYT08KNLnbRh8ToV/KZ1yLqpVlzO2UhPYSQ2yZ3"
+config :blog, Blog.Endpoint,
+  secret_key_base: "+Xr1uVU8jXBHDIaIqcxTiVIUjycfIKYM7cWVsSEHCu38hT8s3OoVQPCJk6uPgROE"
 
 # Configure your database
-config :phoenix_test, PhoenixTest.Repo,
+config :blog, Blog.Repo,
   adapter: Ecto.Adapters.Postgres,
   username: "postgres",
   password: "postgres",
-  database: "phoenix_test_prod",
+  database: "blog_prod",
   pool_size: 15

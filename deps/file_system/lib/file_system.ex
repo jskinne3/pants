@@ -7,7 +7,7 @@ defmodule FileSystem do
     * `:dirs` ([string], required), the dir list to monitor
 
     * `:backend` (atom, optional), default backends: `:fs_mac`
-      for `macos`, `:fs_inotify` for `linux` and `freebsd`,
+      for `macos`, `:fs_inotify` for `linux`, `freebsd` and `openbsd`,
       `:fs_windows` for `windows`
 
     * `:name` (atom, optional), `name` can be used to subscribe as
@@ -33,7 +33,7 @@ defmodule FileSystem do
       iex> FileSystem.start_link(backend: :fs_mac, dirs: ["/tmp/fs"], name: :worker)
       iex> FileSystem.subscribe(:worker)
   """
-  @spec start_link(Keyword.t) :: {:ok, pid}
+  @spec start_link(Keyword.t) :: GenServer.on_start()
   def start_link(options) do
     FileSystem.Worker.start_link(options)
   end

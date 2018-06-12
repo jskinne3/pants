@@ -55,12 +55,12 @@ defmodule Plug.CSRFProtection do
   For example, if you are running your application behind a proxy, the browser
   will send a request to the proxy with `www.example.com` but the proxy will
   request you using an internal IP. In such cases, it is common for proxies
-  to attach information such as `"x-forwarded-host" that contains the original
+  to attach information such as `"x-forwarded-host"` that contains the original
   host.
 
   This may also happen on redirects. If you have a POST request to `foo.example.com`
-  that redirects with status `bar.example.com` with status 407. The token and
-  the server will be running on different versions.
+  that redirects to `bar.example.com` with status 307, the token will contain a
+  different host than the one in the request.
 
   You can pass the `:allow_hosts` option to control any host that you may want
   to allow. The values in `:allow_hosts` may either be a full host name or a

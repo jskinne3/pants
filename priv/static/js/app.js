@@ -1639,14 +1639,14 @@ require.register("phoenix_html/priv/static/phoenix_html.js", function(exports, r
 })();
   })();
 });
-require.register("js/app.js", function(exports, require, module) {
+require.register("web/static/js/app.js", function(exports, require, module) {
 "use strict";
 
 require("phoenix_html");
 
 });
 
-require.register("js/socket.js", function(exports, require, module) {
+require.register("web/static/js/socket.js", function(exports, require, module) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -1663,7 +1663,7 @@ var socket = new _phoenix.Socket("/socket", { params: { token: window.userToken 
 // If the current user exists you can assign the user's token in
 // the connection for use in the layout.
 //
-// In your "lib/web/router.ex":
+// In your "web/router.ex":
 //
 //     pipeline :browser do
 //       ...
@@ -1681,12 +1681,12 @@ var socket = new _phoenix.Socket("/socket", { params: { token: window.userToken 
 //     end
 //
 // Now you need to pass this token to JavaScript. You can do so
-// inside a script tag in "lib/web/templates/layout/app.html.eex":
+// inside a script tag in "web/templates/layout/app.html.eex":
 //
 //     <script>window.userToken = "<%= assigns[:user_token] %>";</script>
 //
 // You will need to verify the user token in the "connect/2" function
-// in "lib/web/channels/user_socket.ex":
+// in "web/channels/user_socket.ex":
 //
 //     def connect(%{"token" => token}, socket) do
 //       # max_age: 1209600 is equivalent to two weeks in seconds
@@ -1698,14 +1698,15 @@ var socket = new _phoenix.Socket("/socket", { params: { token: window.userToken 
 //       end
 //     end
 //
-// Finally, pass the token on connect as below. Or remove it
-// from connect if you don't care about authentication.
+// Finally, pass the token to the Socket constructor as above.
+// Or, remove it from the constructor if you don't care about
+// authentication.
 
 // NOTE: The contents of this file will only be executed if
-// you uncomment its entry in "assets/js/app.js".
+// you uncomment its entry in "web/static/js/app.js".
 
 // To use Phoenix channels, the first step is to import Socket
-// and connect at the socket path in "lib/web/endpoint.ex":
+// and connect at the socket path in "lib/my_app/endpoint.ex":
 socket.connect();
 
 // Now that you are connected, you can join channels with a topic:
@@ -1725,5 +1726,5 @@ require.alias("phoenix_html/priv/static/phoenix_html.js", "phoenix_html");requir
   
 });})();require('___globals___');
 
-require('js/app');
+require('web/static/js/app');
 //# sourceMappingURL=app.js.map

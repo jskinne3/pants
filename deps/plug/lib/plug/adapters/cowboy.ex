@@ -159,6 +159,8 @@ defmodule Plug.Adapters.Cowboy do
 
   """
   def child_spec(opts) do
+    :ok = verify_cowboy_version()
+
     scheme = Keyword.fetch!(opts, :scheme)
     cowboy_opts = Keyword.get(opts, :options, [])
 
@@ -181,14 +183,7 @@ defmodule Plug.Adapters.Cowboy do
   defp run(scheme, plug, opts, cowboy_options) do
     case Application.ensure_all_started(:cowboy) do
       {:ok, _} ->
-        case Application.spec(:cowboy, :vsn) do
-          '1.' ++ _ ->
-            :ok
-
-          vsn ->
-            raise "you are using Plug.Adapters.Cowboy (for Cowboy 1) but your current Cowboy " <>
-                    "version is #{vsn}. Please update your mix.exs file accordingly"
-        end
+        verify_cowboy_version()
 
       {:error, {:cowboy, _}} ->
         raise "could not start the Cowboy application. Please ensure it is listed as a dependency in your mix.exs"
@@ -275,11 +270,10 @@ defmodule Plug.Adapters.Cowboy do
   defp onresponse(status, _headers, _body, request) do
     if status == 400 and empty_headers?(request) do
       Logger.error("""
-      Cowboy returned 400 and there are no headers in the connection.
+      Cowboy returned 400 because it was unable to parse the request headers.
 
-      This may happen if Cowboy is unable to parse the request headers,
-      for example, because there are too many headers or the header name
-      or value are too large (such as a large cookie).
+      This may happen because there are no headers, or there are too many headers
+      or the header name or value are too large (such as a large cookie).
 
       You can customize those values when configuring your http/https
       server. The configuration option and default values are shown below:
@@ -326,12 +320,20 @@ defmodule Plug.Adapters.Cowboy do
   end
 
   defp assert_ssl_options(cowboy_options) do
-    unless Keyword.has_key?(cowboy_options, :key) or Keyword.has_key?(cowboy_options, :keyfile) do
-      fail("missing option :key/:keyfile")
-    end
+    has_sni? =
+      Keyword.has_key?(cowboy_options, :sni_hosts) or Keyword.has_key?(cowboy_options, :sni_fun)
 
-    unless Keyword.has_key?(cowboy_options, :cert) or Keyword.has_key?(cowboy_options, :certfile) do
-      fail("missing option :cert/:certfile")
+    has_key? =
+      Keyword.has_key?(cowboy_options, :key) or Keyword.has_key?(cowboy_options, :keyfile)
+
+    has_cert? =
+      Keyword.has_key?(cowboy_options, :cert) or Keyword.has_key?(cowboy_options, :certfile)
+
+    cond do
+      has_sni? -> :ok
+      !has_key? -> fail("missing option :key/:keyfile")
+      !has_cert? -> fail("missing option :cert/:certfile")
+      true -> :ok
     end
   end
 
@@ -368,6 +370,17 @@ defmodule Plug.Adapters.Cowboy do
 
   defp fail(message) do
     raise ArgumentError, message: "could not start Cowboy adapter, " <> message
+  end
+
+  defp verify_cowboy_version do
+    case Application.spec(:cowboy, :vsn) do
+      '1.' ++ _ ->
+        :ok
+
+      vsn ->
+        raise "you are using Plug.Adapters.Cowboy (for Cowboy 1) but your current Cowboy " <>
+                "version is #{vsn}. Please update your mix.exs file accordingly"
+    end
   end
 
   # TODO: Remove once we depend on Elixir ~> 1.4.

@@ -1,11 +1,15 @@
 var buildFreshUrl = function(link){
-  var date    = Math.round(Date.now() / 1000).toString();
-  var url     = link.href.replace(/(\&|\\?)vsn=\d*/, '');
+  var date = Math.round(Date.now() / 1000).toString();
+  var url = link.href.replace(/(\&|\\?)vsn=\d*/, '');
   var newLink = document.createElement('link');
-  var onComplete = function() { link.remove() }
+  var onComplete = function() {
+    if (link.parentNode !== null) {
+      link.parentNode.removeChild(link);
+    }
+  };
 
-  newLink.onerror = onComplete
-  newLink.onload  = onComplete
+  newLink.onerror = onComplete;
+  newLink.onload  = onComplete;
   link.setAttribute('data-pending-removal', '');
   newLink.setAttribute('rel', 'stylesheet');
   newLink.setAttribute('type', 'text/css');
@@ -23,7 +27,7 @@ var repaint = function(){
 };
 
 var cssStrategy = function(){
-  var reloadableLinkElements = window.top.document.querySelectorAll(
+  var reloadableLinkElements = window.parent.document.querySelectorAll(
     'link[rel=stylesheet]:not([data-no-reload]):not([data-pending-removal])'
   );
 
@@ -49,6 +53,6 @@ socket.connect();
 var chan = socket.channel('phoenix:live_reload', {})
 chan.on('assets_change', function(msg) {
   var reloadStrategy = reloadStrategies[msg.asset_type] || reloadStrategies.page;
-  reloadStrategy(chan);
+  setTimeout(function(){ reloadStrategy(chan); }, interval);
 });
 chan.join();

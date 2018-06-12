@@ -41,17 +41,15 @@ defmodule Plug.Adapters.Cowboy2 do
 
   # Made public with @doc false for testing.
   @doc false
-  def args(scheme, plug, opts, cowboy_options) do
+  def args(scheme, plug, plug_opts, cowboy_options) do
     {cowboy_options, non_keyword_options} =
       enum_split_with(cowboy_options, &(is_tuple(&1) and tuple_size(&1) == 2))
 
     cowboy_options
     |> Keyword.put_new(:max_connections, 16_384)
-    |> Keyword.put_new(:ref, build_ref(plug, scheme))
-    |> Keyword.put_new(:dispatch, cowboy_options[:dispatch] || dispatch_for(plug, opts))
     |> set_compress()
     |> normalize_cowboy_options(scheme)
-    |> to_args(non_keyword_options)
+    |> to_args(scheme, plug, plug_opts, non_keyword_options)
   end
 
   @doc """
@@ -136,6 +134,8 @@ defmodule Plug.Adapters.Cowboy2 do
 
   """
   def child_spec(opts) do
+    :ok = verify_cowboy_version()
+
     scheme = Keyword.fetch!(opts, :scheme)
     cowboy_opts = Keyword.get(opts, :options, [])
 
@@ -190,14 +190,7 @@ defmodule Plug.Adapters.Cowboy2 do
   defp run(scheme, plug, opts, cowboy_options) do
     case Application.ensure_all_started(:cowboy) do
       {:ok, _} ->
-        case Application.spec(:cowboy, :vsn) do
-          '2.' ++ _ ->
-            :ok
-
-          vsn ->
-            raise "you are using Plug.Adapters.Cowboy2 but your current Cowboy version is #{vsn}. " <>
-                    "Please update your mix.exs file accordingly"
-        end
+        verify_cowboy_version()
 
       {:error, {:cowboy, _}} ->
         raise "could not start the Cowboy application. Please ensure it is listed as a dependency in your mix.exs"
@@ -213,7 +206,7 @@ defmodule Plug.Adapters.Cowboy2 do
     apply(:cowboy, start, args(scheme, plug, opts, cowboy_options))
   end
 
-  @default_stream_handlers [Plug.Adapters.Cowboy2.BadResponseCheck, :cowboy_stream_h]
+  @default_stream_handlers [Plug.Adapters.Cowboy2.Stream]
 
   defp set_compress(cowboy_options) do
     compress = Keyword.get(cowboy_options, :compress)
@@ -247,14 +240,14 @@ defmodule Plug.Adapters.Cowboy2 do
     Enum.reduce([:password], cowboy_options, &to_charlist(&2, &1))
   end
 
-  defp to_args(opts, non_keyword_opts) do
+  defp to_args(opts, scheme, plug, plug_opts, non_keyword_opts) do
     opts = Keyword.delete(opts, :otp_app)
     {ref, opts} = Keyword.pop(opts, :ref)
     {dispatch, opts} = Keyword.pop(opts, :dispatch)
     {num_acceptors, opts} = Keyword.pop(opts, :acceptors, 100)
     {protocol_options, opts} = Keyword.pop(opts, :protocol_options, [])
 
-    dispatch = :cowboy_router.compile(dispatch)
+    dispatch = :cowboy_router.compile(dispatch || dispatch_for(plug, plug_opts))
     {extra_options, transport_options} = Keyword.split(opts, @protocol_options)
 
     extra_options = Keyword.put_new(extra_options, :stream_handlers, @default_stream_handlers)
@@ -262,7 +255,7 @@ defmodule Plug.Adapters.Cowboy2 do
     protocol_options = Map.merge(%{env: %{dispatch: dispatch}}, protocol_and_extra_options)
     transport_options = Keyword.put_new(transport_options, :num_acceptors, num_acceptors)
 
-    [ref, non_keyword_opts ++ transport_options, protocol_options]
+    [ref || build_ref(plug, scheme), non_keyword_opts ++ transport_options, protocol_options]
   end
 
   defp build_ref(plug, scheme) do
@@ -290,12 +283,20 @@ defmodule Plug.Adapters.Cowboy2 do
   end
 
   defp assert_ssl_options(cowboy_options) do
-    unless Keyword.has_key?(cowboy_options, :key) or Keyword.has_key?(cowboy_options, :keyfile) do
-      fail("missing option :key/:keyfile")
-    end
+    has_sni? =
+      Keyword.has_key?(cowboy_options, :sni_hosts) or Keyword.has_key?(cowboy_options, :sni_fun)
 
-    unless Keyword.has_key?(cowboy_options, :cert) or Keyword.has_key?(cowboy_options, :certfile) do
-      fail("missing option :cert/:certfile")
+    has_key? =
+      Keyword.has_key?(cowboy_options, :key) or Keyword.has_key?(cowboy_options, :keyfile)
+
+    has_cert? =
+      Keyword.has_key?(cowboy_options, :cert) or Keyword.has_key?(cowboy_options, :certfile)
+
+    cond do
+      has_sni? -> :ok
+      !has_key? -> fail("missing option :key/:keyfile")
+      !has_cert? -> fail("missing option :cert/:certfile")
+      true -> :ok
     end
   end
 
@@ -333,6 +334,17 @@ defmodule Plug.Adapters.Cowboy2 do
 
   defp fail(message) do
     raise ArgumentError, message: "could not start Cowboy2 adapter, " <> message
+  end
+
+  defp verify_cowboy_version do
+    case Application.spec(:cowboy, :vsn) do
+      '2.' ++ _ ->
+        :ok
+
+      vsn ->
+        raise "you are using Plug.Adapters.Cowboy (for Cowboy 1) but your current Cowboy " <>
+                "version is #{vsn}. Please update your mix.exs file accordingly"
+    end
   end
 
   # TODO: Remove once we depend on Elixir ~> 1.4.
