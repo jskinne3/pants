@@ -17,17 +17,15 @@ defmodule Plug.Conn do
     * `host` - the requested host as a binary, example: `"www.example.com"`
     * `method` - the request method as a binary, example: `"GET"`
     * `path_info` - the path split into segments, example: `["hello", "world"]`
-    * `script_name` - the initial portion of the URL's path that corresponds to the application
-      routing, as segments, example: ["sub","app"].
+    * `script_name` - the initial portion of the URL's path that corresponds to
+      the application routing, as segments, example: ["sub","app"]
     * `request_path` - the requested path, example: `/trailing/and//double//slashes/`
     * `port` - the requested port as an integer, example: `80`
-    * `peer` - the actual TCP peer that connected, example: `{{127, 0, 0, 1}, 12345}`. Often this
-      is not the actual IP and port of the client, but rather of a load-balancer or request-router.
-    * `remote_ip` - the IP of the client, example: `{151, 236, 219, 228}`. This field is meant to
-      be overwritten by plugs that understand e.g. the `X-Forwarded-For` header or HAProxy's PROXY
-      protocol. It defaults to peer's IP.
+    * `remote_ip` - the IP of the client, example: `{151, 236, 219, 228}`. This field
+      is meant to be overwritten by plugs that understand e.g. the `X-Forwarded-For`
+      header or HAProxy's PROXY protocol. It defaults to peer's IP
     * `req_headers` - the request headers as a list, example: `[{"content-type", "text/plain"}]`.
-      Note all headers will be downcased.
+      Note all headers will be downcased
     * `scheme` - the request scheme as an atom, example: `:http`
     * `query_string` - the request query string as a binary, example: `"foo=bar"`
 
@@ -44,8 +42,8 @@ defmodule Plug.Conn do
     * `body_params` - the request body params, populated through a `Plug.Parsers` parser.
     * `query_params` - the request query params, populated through `fetch_query_params/2`
     * `path_params` - the request path params, populated by routers such as `Plug.Router`
-    * `params` - the request params, the result of merging the `:body_params` and `:query_params`
-       with `:path_params`
+    * `params` - the request params, the result of merging the `:body_params` and
+      `:query_params` with `:path_params`
     * `req_cookies` - the request cookies (without the response ones)
 
   ## Response fields
@@ -151,7 +149,6 @@ defmodule Plug.Conn do
   @type method :: binary
   @type param :: binary | %{binary => param} | [param]
   @type params :: %{binary => param}
-  @type peer :: {:inet.ip_address(), :inet.port_number()}
   @type port_number :: :inet.port_number()
   @type query_string :: String.t()
   @type resp_cookies :: %{binary => %{}}
@@ -177,7 +174,6 @@ defmodule Plug.Conn do
           private: assigns,
           query_params: params | Unfetched.t(),
           query_string: query_string,
-          peer: peer,
           remote_ip: :inet.ip_address(),
           req_cookies: cookies | Unfetched.t(),
           req_headers: headers,
@@ -208,7 +204,6 @@ defmodule Plug.Conn do
             private: %{},
             query_params: %Unfetched{aspect: :query_params},
             query_string: "",
-            peer: nil,
             remote_ip: nil,
             req_cookies: %Unfetched{aspect: :cookies},
             req_headers: [],
@@ -556,6 +551,22 @@ defmodule Plug.Conn do
   def resp(%Conn{} = conn, status, body)
       when is_binary(body) or is_list(body) do
     %{conn | status: Plug.Conn.Status.code(status), resp_body: body, state: :set}
+  end
+
+  @doc """
+  Returns the request peer data if one is present. 
+  """
+  @spec get_peer_data(t) :: Plug.Conn.Adapter.peer_data()
+  def get_peer_data(%Conn{adapter: {adapter, payload}}) do
+    adapter.get_peer_data(payload)
+  end
+
+  @doc """
+  Returns the http protocol and version.
+  """
+  @spec get_http_protocol(t) :: Plug.Conn.Adapter.http_protocol()
+  def get_http_protocol(%Conn{adapter: {adapter, payload}}) do
+    adapter.get_http_protocol(payload)
   end
 
   @doc """
@@ -1051,6 +1062,59 @@ defmodule Plug.Conn do
   end
 
   @doc """
+  Sends and informational response to the client.
+
+  An informational response, such as an early hint, must happen prior to a response
+  being sent. If an informational request is attempted after a response is sent then
+  a `Plug.Conn.AlreadySentError` will be raised. Only status codes from 100-199 are valid.
+
+  To use inform for early hints send one or more informs with a status of 103.
+
+  If the adapter does not support informational responses then this is a noop.
+
+  Most HTTP/1.1 clients do not properly support informational responses but some
+  proxies require it to support server push for HTTP/2. You can call
+  `get_http_protocol/1` to retrieve the protocol and version.
+  """
+  @spec inform(t, status, Keyword.t()) :: t
+  def inform(%Conn{} = conn, status, headers \\ []) do
+    status_code = Plug.Conn.Status.code(status)
+    adapter_inform(conn, status_code, headers)
+    conn
+  end
+
+  @doc """
+  Sends an information response to a client but raises if the adapter does not support inform.
+  """
+  @spec inform!(t, status, Keyword.t()) :: t
+  def inform!(%Conn{adapter: {adapter, _}} = conn, status, headers \\ []) do
+    status_code = Plug.Conn.Status.code(status)
+
+    case adapter_inform(conn, status_code, headers) do
+      :ok ->
+        conn
+
+      _ ->
+        raise "inform is not supported by #{inspect(adapter)}." <>
+                "You should either delete the call to `inform!/3` or switch to an " <>
+                "adapter that does support informational such as Plug.Adapters.Cowboy2"
+    end
+  end
+
+  defp adapter_inform(_conn, status, _headers)
+       when not (status >= 100 and status <= 199 and is_integer(status)) do
+    raise ArgumentError, "inform expects a status code between 100 and 199, got: #{status}"
+  end
+
+  defp adapter_inform(%Conn{state: state}, _status, _headers)
+       when not (state in @unsent) do
+    raise AlreadySentError
+  end
+
+  defp adapter_inform(%Conn{adapter: {adapter, payload}}, status, headers),
+    do: adapter.inform(payload, status, headers)
+
+  @doc """
   Pushes a resource to the client.
 
   Server pushes must happen prior to a response being sent. If a server
@@ -1058,6 +1122,10 @@ defmodule Plug.Conn do
   will be raised.
 
   If the adapter does not support server push then this is a noop.
+
+  Note that certain browsers (such as Google Chrome) will not accept a pushed
+  resource if your certificate is not trusted. In the case of Chrome this means
+  a valid cert with a SAN. See https://www.chromestatus.com/feature/4981025180483584
   """
   @spec push(t, String.t(), Keyword.t()) :: t
   def push(%Conn{} = conn, path, headers \\ []) do

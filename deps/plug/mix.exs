@@ -1,9 +1,9 @@
 defmodule Plug.MixProject do
   use Mix.Project
 
-  @version "1.5.1"
-
+  @version "1.6.0"
   @description "A specification and conveniences for composable modules between web applications"
+  @xref_exclude [:ranch, :cowboy, :cowboy_req, :cowboy_router, :cowboy_stream, :cowboy_stream_h]
 
   def project do
     [
@@ -15,7 +15,7 @@ defmodule Plug.MixProject do
       lockfile: lockfile(),
       description: @description,
       name: "Plug",
-      xref: [exclude: [:ranch, :cowboy, :cowboy_req, :cowboy_router, :cowboy_stream]],
+      xref: [exclude: @xref_exclude],
       docs: [
         extras: ["README.md"],
         main: "readme",
@@ -38,7 +38,7 @@ defmodule Plug.MixProject do
   def deps do
     [
       {:mime, "~> 1.0"},
-      {:cowboy, "~> 1.0.1 or ~> 1.1 or ~> 2.3", optional: true},
+      {:cowboy, "~> 1.0.1 or ~> 1.1 or ~> 2.4", optional: true},
       {:ex_doc, "~> 0.17.1", only: :docs},
       {:inch_ex, ">= 0.0.0", only: :docs},
       {:hackney, "~> 1.2.0", only: :test},

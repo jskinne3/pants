@@ -21,7 +21,12 @@ defmodule Plug.Adapters.Test.Conn do
       req_body: body,
       chunks: nil,
       ref: make_ref(),
-      owner: owner
+      owner: owner,
+      http_protocol:
+        case conn.adapter do
+          {Plug.MissingAdapter, _} -> :"HTTP/1.1"
+          {adapter, payload} -> adapter.get_http_protocol(payload)
+        end
     }
 
     %Plug.Conn{
@@ -32,7 +37,6 @@ defmodule Plug.Adapters.Test.Conn do
         owner: owner,
         path_info: split_path(uri.path),
         port: uri.port || 80,
-        peer: {{127, 0, 0, 1}, 111_317},
         remote_ip: conn.remote_ip || {127, 0, 0, 1},
         req_headers: req_headers,
         request_path: uri.path,
@@ -102,9 +106,22 @@ defmodule Plug.Adapters.Test.Conn do
     {tag, data, %{state | req_body: rest}}
   end
 
+  def inform(%{owner: owner, ref: ref}, status, headers) do
+    send(owner, {ref, :inform, {status, headers}})
+    :ok
+  end
+
   def push(%{owner: owner, ref: ref}, path, headers) do
     send(owner, {ref, :push, {path, headers}})
     :ok
+  end
+
+  def get_peer_data(_state) do
+    %{address: {127, 0, 0, 1}, port: 111_317, ssl_cert: nil}
+  end
+
+  def get_http_protocol(payload) do
+    Map.fetch!(payload, :http_protocol)
   end
 
   ## Private helpers

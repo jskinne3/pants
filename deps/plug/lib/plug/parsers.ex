@@ -78,9 +78,9 @@ defmodule Plug.Parsers do
 
   ## Options
 
-    * `:parsers` - a list of modules to be invoked for parsing.
-      These modules need to implement the behaviour outlined in
-      this module.
+    * `:parsers` - a list of modules or atoms of built-in parsers to be
+      invoked for parsing. These modules need to implement the behaviour
+      outlined in this module.
 
     * `:pass` - an optional list of MIME type strings that are allowed
       to pass through. Any mime not handled by a parser and not explicitly
@@ -155,7 +155,7 @@ defmodule Plug.Parsers do
   body reader that would read the body and store it in the connection, such as:
 
       defmodule CacheBodyReader do
-        def read_body(conn, opts, verified_providers, verifiers) do
+        def read_body(conn, opts) do
           {:ok, body, conn} = Plug.Conn.read_body(conn, opts)
           conn = update_in(conn.assigns[:raw_body], &[body | (&1 || [])])
           {:ok, body, conn}
